@@ -2,9 +2,26 @@
 // login.php
 require_once 'config.php';
 
-// Jika sudah login, langsung ke admin
-if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
-    header('Location: admin.php');
+// Auto-seed admin user if database is empty or admin is missing
+try {
+    $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = 'admin'");
+    $stmt_check->execute();
+    if ($stmt_check->fetchColumn() == 0) {
+        $hashed_pw = password_hash('admin123', PASSWORD_DEFAULT);
+        $stmt_seed = $pdo->prepare("INSERT INTO users (username, password, role) VALUES ('admin', ?, 'admin')");
+        $stmt_seed->execute([$hashed_pw]);
+    }
+} catch (PDOException $e) {
+    // Abaikan jika tabel belum diimpor
+}
+
+// Jika sudah login, redirect sesuai role
+if (isset($_SESSION['role'])) {
+    if ($_SESSION['role'] === 'admin') {
+        header('Location: admin.php');
+    } else {
+        header('Location: index.php');
+    }
     exit;
 }
 
@@ -26,7 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['role'] = $user['role'];
 
-                header('Location: admin.php');
+                // Redirect sesuai role
+                if ($user['role'] === 'admin') {
+                    header('Location: admin.php');
+                } else {
+                    header('Location: index.php');
+                }
                 exit;
             } else {
                 $error_message = 'Username atau Password salah!';
@@ -54,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <header>
         <div class="nav-container">
-            <a href="index.php" class="logo"><img src="assets/media/logo.jpg" alt="Logo" class="logo-img"><span class="logo-text">yassjokiin</span></a>
+            <a href="index.php" class="logo"><img src="assets/img/♡ ₊ profile ⁺ shorekeeper - wuwa.jpg" alt="Logo" class="logo-img"><span class="logo-text">yassjokiin</span></a>
             <div class="control-buttons">
                 <button class="btn-icon" id="muteToggle" title="Mute/Unmute"><i class="fas fa-volume-up"></i></button>
                 <button class="btn-icon" id="themeToggle" title="Switch Mode"><i class="fas fa-moon"></i></button>
@@ -66,8 +88,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <main class="container" style="display: flex; justify-content: center; align-items: center; min-height: 75vh;">
         <div class="card" style="width: 100%; max-width: 420px; animation: fadeInUp 0.8s ease;">
             <div style="text-align: center; margin-bottom: 2rem;">
-                <h2 style="font-size: 2.2rem; font-weight: 800; background: linear-gradient(45deg, var(--primary-color), var(--secondary-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Sign In Admin</h2>
-                <p style="color: var(--text-muted); margin-top: 0.5rem;">Akses dashboard joki game yassjokiin</p>
+                <h2 style="font-size: 2.2rem; font-weight: 800; background: linear-gradient(45deg, var(--primary-color), var(--secondary-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Sign In</h2>
+                <p style="color: var(--text-muted); margin-top: 0.5rem;">Masuk ke akun Anda atau dashboard admin</p>
             </div>
 
             <?php if (!empty($error_message)): ?>
@@ -90,8 +112,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem;"><i class="fas fa-sign-in-alt"></i> Masuk Sekarang</button>
             </form>
 
-            <div style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-muted);">
-                <span>Default Admin Login: <b>admin</b> / <b>admin123</b></span>
+            <div style="text-align: center; margin-top: 1.5rem; font-size: 0.95rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.5rem;">
+                <span>Belum punya akun? <a href="register.php" style="color: var(--primary-color); text-decoration: none; font-weight:600;">Daftar di sini</a></span>
+                <span style="font-size:0.85rem; margin-top:0.5rem; border-top:1px dashed var(--card-border); padding-top:0.5rem;">Demo Admin: <b>admin</b> / <b>admin123</b></span>
             </div>
         </div>
     </main>

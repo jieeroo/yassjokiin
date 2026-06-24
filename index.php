@@ -23,11 +23,17 @@ require_once 'config.php';
                 <li><a href="#games">List Game</a></li>
                 <li><a href="#order">Form Order</a></li>
                 <li><a href="#promo">Promo Video</a></li>
-                <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
-                    <li><a href="admin.php" class="btn btn-primary" style="color: #fff; padding: 0.5rem 1rem;"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <?php if (isset($_SESSION['role'])): ?>
+                    <?php if ($_SESSION['role'] === 'admin'): ?>
+                        <li><a href="admin.php" class="btn btn-primary" style="color: #fff; padding: 0.5rem 1rem;"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                    <?php else: ?>
+                        <li><span style="font-weight: 600; color: var(--primary-color);"><i class="fas fa-user-circle"></i> Halo, <?php echo htmlspecialchars($_SESSION['username']); ?></span></li>
+                        <li><a href="#history"><i class="fas fa-history"></i> Riwayat</a></li>
+                    <?php endif; ?>
                     <li><a href="logout.php" style="color: var(--danger-color);"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
                 <?php else: ?>
-                    <li><a href="login.php" class="btn btn-secondary" style="padding: 0.5rem 1rem;"><i class="fas fa-sign-in-alt"></i> Admin Login</a></li>
+                    <li><a href="login.php" class="btn btn-secondary" style="padding: 0.5rem 1rem;"><i class="fas fa-sign-in-alt"></i> Login</a></li>
+                    <li><a href="register.php" class="btn btn-primary" style="color: #fff; padding: 0.5rem 1rem;"><i class="fas fa-user-plus"></i> Register</a></li>
                 <?php endif; ?>
             </ul>
             <div class="control-buttons">
@@ -146,9 +152,15 @@ require_once 'config.php';
         <div class="card">
             <h2 class="section-title" style="margin-bottom: 2rem;">Formulir Pemesanan Joki</h2>
             
+            <?php if (isset($_GET['register']) && $_GET['register'] === 'success'): ?>
+                <div style="background: rgba(0, 255, 135, 0.15); border: 1px solid var(--success-color); color: var(--success-color); padding: 1rem; border-radius: 8px; margin-bottom: 2rem; text-align: center;">
+                    <i class="fas fa-user-check"></i> Registrasi berhasil! Akun Anda telah terdaftar dan otomatis masuk. Silakan lakukan pemesanan di bawah.
+                </div>
+            <?php endif; ?>
+
             <?php if (isset($_GET['status']) && $_GET['status'] === 'success'): ?>
                 <div style="background: rgba(0, 255, 135, 0.15); border: 1px solid var(--success-color); color: var(--success-color); padding: 1rem; border-radius: 8px; margin-bottom: 2rem; text-align: center;">
-                    <i class="fas fa-check-circle"></i> Pesanan berhasil dikirim! Silakan tunggu konfirmasi admin melalui WhatsApp atau login.
+                    <i class="fas fa-check-circle"></i> Pesanan berhasil dikirim! Silakan pantau perkembangan joki Anda pada tabel riwayat di bawah.
                 </div>
             <?php elseif (isset($_GET['status']) && $_GET['status'] === 'error'): ?>
                 <div style="background: rgba(255, 56, 56, 0.15); border: 1px solid var(--danger-color); color: var(--danger-color); padding: 1rem; border-radius: 8px; margin-bottom: 2rem; text-align: center;">
@@ -159,7 +171,9 @@ require_once 'config.php';
             <form id="orderForm" action="process_order.php" method="POST" enctype="multipart/form-data">
                 <div class="form-group">
                     <label for="customer_name"><i class="fas fa-user"></i> Nama Pelanggan</label>
-                    <input type="text" name="customer_name" id="customer_name" class="form-control" placeholder="Masukkan nama lengkap Anda" required>
+                    <input type="text" name="customer_name" id="customer_name" class="form-control" placeholder="Masukkan nama lengkap Anda" required 
+                           value="<?php echo (isset($_SESSION['role']) && $_SESSION['role'] === 'user') ? htmlspecialchars($_SESSION['username']) : ''; ?>"
+                           <?php echo (isset($_SESSION['role']) && $_SESSION['role'] === 'user') ? 'readonly style="background: rgba(255, 255, 255, 0.05);"' : ''; ?>>
                 </div>
 
                 <div class="grid-games" style="grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0;">
@@ -224,6 +238,65 @@ require_once 'config.php';
             </form>
         </div>
     </section>
+
+    <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'user'): ?>
+        <!-- Order History Section for Logged-in Customer -->
+        <section id="history" class="container" style="max-width: 800px; padding-top: 0;">
+            <div class="card">
+                <h2 class="section-title" style="margin-bottom: 2rem;"><i class="fas fa-history"></i> Riwayat Pemesanan Anda</h2>
+                <?php
+                try {
+                    $stmt_history = $pdo->prepare("SELECT * FROM orders WHERE customer_name = ? ORDER BY created_at DESC");
+                    $stmt_history->execute([$_SESSION['username']]);
+                    $user_orders = $stmt_history->fetchAll();
+                } catch (PDOException $e) {
+                    $user_orders = [];
+                }
+                ?>
+                
+                <?php if (empty($user_orders)): ?>
+                    <p style="text-align: center; color: var(--text-muted); padding: 1rem 0;">Anda belum melakukan pemesanan joki game apa pun.</p>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="custom-table" style="font-size:0.95rem;">
+                            <thead>
+                                <tr>
+                                    <th>Game</th>
+                                    <th>Paket</th>
+                                    <th>Target</th>
+                                    <th>Harga</th>
+                                    <th>Status</th>
+                                    <th>Tanggal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($user_orders as $u_order): ?>
+                                    <tr>
+                                        <td><b><?php echo htmlspecialchars($u_order['game_name']); ?></b></td>
+                                        <td><?php echo htmlspecialchars($u_order['jockey_package']); ?></td>
+                                        <td><span style="font-style: italic;"><?php echo htmlspecialchars($u_order['target_rank']); ?></span></td>
+                                        <td class="cell-price" data-price="<?php echo $u_order['price']; ?>">Rp <?php echo number_format($u_order['price'], 0, ',', '.'); ?></td>
+                                        <td>
+                                            <span class="badge badge-<?php echo $u_order['status']; ?>">
+                                                <?php
+                                                if ($u_order['status'] === 'pending') echo 'Menunggu';
+                                                elseif ($u_order['status'] === 'processing') echo 'Proses';
+                                                elseif ($u_order['status'] === 'completed') echo 'Selesai';
+                                                elseif ($u_order['status'] === 'cancelled') echo 'Batal';
+                                                else echo $u_order['status'];
+                                                ?>
+                                            </span>
+                                        </td>
+                                        <td class="cell-date" data-date="<?php echo $u_order['created_at']; ?>"><?php echo $u_order['created_at']; ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </section>
+    <?php endif; ?>
 
     <!-- Modal Cara Pemesanan -->
     <div class="modal" id="guidelinesModal">
